@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time ECG Waveform with D3.js</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        .line {
+            fill: none;
+            stroke: #10a510; /* Parrot green color */
+            stroke-width: 2px;
+            filter: url(#glow); /* Apply glow effect */
+        }
+
+        .grid line {
+            stroke: lightgray;
+            stroke-opacity: 0.7;
+            stroke-width: 1px;
+        }
+
+        .background {
+            fill: #f0f0f0; /* Light background color */
+        }
+
+        .container {
+            width: 100%;
+            height: auto;
+            max-width: 1000px; /* Adjust the max width as needed */
+            margin: 0 auto;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .heart-rate-box {
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #fff;
+            display: inline-block;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>JavaScript Vital Signs ECG Medical Demo</h2>
+        <div class="heart-rate-box">
+            ECG Heart Rate: 60 BPM
+        </div>
+        <svg viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet">
+            <defs>
+                <!-- Define the glow filter -->
+                <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+                    <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                </filter>
+            </defs>
+        </svg>
+        <input type="file" id="fileInput" />
+    </div>
+    <script>
+        const margin = { top: 20, right: 20, bottom: 50, left: 50 };
+        const width = 800 - margin.left - margin.right;
+        const height = 400 - margin.top - margin.bottom;
+
+        const svg = d3.select("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        // Add background rectangle
+        svg.append("rect")
+            .attr("class", "background")
+            .attr("width", width)
+            .attr("height", height);
+
+        const x = d3.scaleLinear().domain([0, 700]).range([0, width]);
+        const y = d3.scaleLinear().domain([0, 80]).range([height, 0]);
+
+        const xAxis = d3.axisBottom(x);
+        const yAxis = d3.axisLeft(y);
+
+        svg.append("g")
+            .attr("class", "x axis")
+            .attr("transform", "translate(0," + height + ")")
+            .call(xAxis);
+
+        svg.append("g")
+            .attr("class", "y axis")
+            .call(yAxis);
+
+        // Add grid lines
+        svg.append("g")
+            .attr("class", "grid")
+            .call(d3.axisBottom(x)
+                .ticks(10)
+                .tickSize(-height)
+                .tickFormat("")
+            );
+
+        svg.append("g")
+            .attr("class", "grid")
+            .call(d3.axisLeft(y)
+                .ticks(10)
+                .tickSize(-width)
+                .tickFormat("")
+            );
+
+        const line = d3.line()
+            .x((d, i) => x(i))
+            .y(d => y(d));
+
+        const path = svg.append("path")
+            .datum([])
+            .attr("class", "line")
+            .attr("d", line);
+
+        let data = Array(700).fill(0); // Initialize with zeros
+        let fileLines = [];
+        let index = 0;
+
+        function processLine(line) {
+            const values = line.split(',').slice(5).map(d => 82 - +d);
+            return values;
+        }
+
+        function readData() {
+            if (fileLines.length > 0) {
+                const newPoints = processLine(fileLines.shift());
+                
+                // Shift data left and add new points at the end
+                data = data.slice(newPoints.length).concat(newPoints);
+                
+                // Update plot
+                update(data);
+            }
+        }
+
+        function update(data) {
+            path.datum(data)
+                .attr("d", line);
+        }
+
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    fileLines = e.target.result.split('\n').filter(line => line.trim());
+                    d3.interval(readData, 400); // Adjust interval to control plotting speed
+                };
+                reader.readAsText(file);
+            }
+        });
+    </script>
+</body>
+</html>
